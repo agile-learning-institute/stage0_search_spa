@@ -4,41 +4,20 @@
       <v-col cols="12" md="10" lg="8" class="py-8">
         <!-- Search Header -->
         <v-card class="mb-6 elevation-6" color="primary" variant="tonal">
-          <v-card-title class="d-flex justify-space-between align-center search-title-card">
-            <span class="text-h6">Search</span>
-            <v-btn
-              color="primary"
-              variant="outlined"
-              size="small"
-              class="ml-2"
-              @click="$router.push('/admin')"
-            >
-              Admin
-            </v-btn>
-          </v-card-title>
-          <v-divider></v-divider>
-          <v-card-text>
+          <v-card-text class="pa-6">
             <v-text-field
               v-model="searchQuery"
-              label="Search across all collections"
+              label="search"
               variant="outlined"
               prepend-inner-icon="mdi-magnify"
+              append-inner-icon="mdi-magnify"
               clearable
               @keyup.enter="performSearch"
               @click:clear="clearSearch"
+              @click:append-inner="performSearch"
               :disabled="loading"
-            >
-              <template v-slot:append>
-                <v-btn
-                  color="primary"
-                  @click="performSearch"
-                  :loading="loading"
-                  :disabled="!searchQuery.trim()"
-                >
-                  Search
-                </v-btn>
-              </template>
-            </v-text-field>
+              class="search-input"
+            ></v-text-field>
           </v-card-text>
         </v-card>
 
@@ -58,27 +37,13 @@
         <div v-if="searchResults.length > 0">
           <v-row>
             <v-col
-              v-for="result in searchResults"
-              :key="result.collection_id"
+              v-for="(result, index) in searchResults"
+              :key="`${result.collection_id}-${index}`"
               cols="12"
-              sm="6"
-              md="4"
-              lg="3"
             >
               <SearchResultCard :result="result" />
             </v-col>
           </v-row>
-          
-          <!-- Loading More Indicator -->
-          <v-row v-if="loadingMore" justify="center" class="mt-6">
-            <v-col cols="auto">
-              <v-progress-circular indeterminate color="primary" size="32"></v-progress-circular>
-              <span class="ml-3 text-body-2">Loading more results...</span>
-            </v-col>
-          </v-row>
-          
-          <!-- Infinite Scroll Sentinel -->
-          <div ref="infiniteScrollSentinel" style="height: 1px;"></div>
         </div>
 
         <!-- No Results -->
@@ -99,11 +64,10 @@
         </v-card>
 
         <!-- Initial State -->
-        <v-card v-if="!hasSearched && !loading && !error" class="elevation-3">
+        <v-card v-if="!hasSearched && !loading && !error && searchResults.length === 0" class="elevation-3">
           <v-card-text class="text-center py-8">
             <v-icon size="64" color="primary">mdi-magnify</v-icon>
-            <div class="text-h6 mt-4">Search across all collections</div>
-            <div class="text-body-2 text-grey">Enter your search terms above to get started</div>
+            <div class="text-h6 mt-4">Enter your search terms above to get started</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -112,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref } from 'vue'
 import { searchAPI } from '../utils/api'
 import type { SearchResult, SearchResponse } from '../types'
 import SearchResultCard from '../components/SearchResultCard.vue'
@@ -120,94 +84,43 @@ import SearchResultCard from '../components/SearchResultCard.vue'
 const searchQuery = ref('')
 const searchResults = ref<SearchResult[]>([])
 const loading = ref(false)
-const loadingMore = ref(false)
 const hasSearched = ref(false)
-const hasMoreResults = ref(false)
-const currentPage = ref(1)
-const currentPageSize = ref(12)
 const error = ref<string | null>(null)
-const infiniteScrollSentinel = ref<HTMLElement | null>(null)
-let observer: IntersectionObserver | null = null
 
-const performSearch = async (page = 1) => {
+const performSearch = async () => {
   if (!searchQuery.value.trim()) return
   
-  if (page === 1) {
-    loading.value = true
-    hasSearched.value = true
-    error.value = null
-  } else {
-    loadingMore.value = true
-  }
+  loading.value = true
+  hasSearched.value = true
+  error.value = null
+  
+  // Clear existing results for new search
+  searchResults.value = []
   
   try {
     const response = await searchAPI.search({
       search: searchQuery.value.trim(),
-      page,
-      page_size: currentPageSize.value
+      page: 1,
+      page_size: 30
     })
     
     const data: SearchResponse = response.data
-    
-    if (page === 1) {
-      searchResults.value = data.items
-    } else {
-      searchResults.value.push(...data.items)
-    }
-    
-    hasMoreResults.value = data.pagination.has_next
-    currentPage.value = data.pagination.page
+    searchResults.value = data.items
   } catch (err) {
     console.error('Search failed:', err)
     error.value = 'Failed to perform search. Please try again.'
-    if (page === 1) {
-      searchResults.value = []
-    }
+    searchResults.value = []
   } finally {
     loading.value = false
-    loadingMore.value = false
   }
-}
-
-const loadMore = async () => {
-  if (!hasMoreResults.value || loadingMore.value || loading.value) return
-  await performSearch(currentPage.value + 1)
 }
 
 const clearSearch = () => {
   searchQuery.value = ''
   searchResults.value = []
   hasSearched.value = false
-  hasMoreResults.value = false
-  currentPage.value = 1
   error.value = null
 }
-
-const setupInfiniteScroll = () => {
-  if (observer) observer.disconnect()
-  observer = new window.IntersectionObserver(async (entries) => {
-    if (entries[0].isIntersecting && hasMoreResults.value && !loading.value && !loadingMore.value) {
-      await loadMore()
-    }
-  })
-  if (infiniteScrollSentinel.value) {
-    observer.observe(infiniteScrollSentinel.value)
-  }
-}
-
-watch([searchResults, hasMoreResults], async () => {
-  await nextTick()
-  setupInfiniteScroll()
-})
-
-onMounted(() => {
-  // Initialize with empty search
-  setupInfiniteScroll()
-})
-
-onBeforeUnmount(() => {
-  if (observer) observer.disconnect()
-})
 </script>
 
 <style scoped>
@@ -221,7 +134,8 @@ onBeforeUnmount(() => {
 .v-card-title {
   background: #f0f4fa;
 }
-.search-title-card {
-  min-height: 56px;
+.search-input {
+  padding-left: 24px;
+  padding-right: 24px;
 }
 </style> 
