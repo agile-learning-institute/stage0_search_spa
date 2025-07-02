@@ -129,7 +129,7 @@ const getDetailUrl = (): string | null => {
   if (!config.value?.config_items) return null
   
   const collectionName = props.result.collection_name
-  const configKey = `${collectionName.toUpperCase()}_SPA_HOST`
+  const configKey = `${collectionName.toUpperCase()}_SPA_URL`
   
   const configItem = config.value.config_items.find(item => item.name === configKey)
   if (!configItem || !configItem.value || configItem.value === 'secret') {
@@ -137,7 +137,7 @@ const getDetailUrl = (): string | null => {
   }
   
   // Build the detail URL with the collection ID
-  return `${configItem.value}/${collectionName}/${props.result.collection_id}`
+  return `${configItem.value}${props.result.collection_id}`
 }
 
 const handleCardClick = () => {
