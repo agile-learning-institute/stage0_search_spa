@@ -55,21 +55,8 @@
               <SearchResultCard :result="result" />
             </v-col>
           </v-row>
-          
-          <!-- Load More Button -->
-          <v-row v-if="hasMoreResults" justify="center" class="mt-6">
-            <v-col cols="auto">
-              <v-btn
-                color="primary"
-                variant="outlined"
-                @click="loadMore"
-                :loading="loadingMore"
-                :disabled="loadingMore"
-              >
-                Load More
-              </v-btn>
-            </v-col>
-          </v-row>
+          <!-- Infinite Scroll Sentinel -->
+          <div ref="infiniteScrollSentinel" style="height: 1px;"></div>
         </div>
 
         <!-- No Results -->
@@ -94,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
 import { searchAPI } from '../utils/api'
 import type { SearchResult, SearchResponse } from '../types'
 import SearchResultCard from '../components/SearchResultCard.vue'
@@ -107,12 +94,18 @@ const hasSearched = ref(false)
 const hasMoreResults = ref(false)
 const currentPage = ref(1)
 const currentPageSize = ref(12)
+const infiniteScrollSentinel = ref<HTMLElement | null>(null)
+let observer: IntersectionObserver | null = null
 
 const performSearch = async (page = 1) => {
   if (!searchQuery.value.trim()) return
   
-  loading.value = true
-  hasSearched.value = true
+  if (page === 1) {
+    loading.value = true
+    hasSearched.value = true
+  } else {
+    loadingMore.value = true
+  }
   
   try {
     const response = await searchAPI.search({
@@ -135,15 +128,13 @@ const performSearch = async (page = 1) => {
     console.error('Search failed:', error)
   } finally {
     loading.value = false
+    loadingMore.value = false
   }
 }
 
 const loadMore = async () => {
-  if (!hasMoreResults.value || loadingMore.value) return
-  
-  loadingMore.value = true
+  if (!hasMoreResults.value || loadingMore.value || loading.value) return
   await performSearch(currentPage.value + 1)
-  loadingMore.value = false
 }
 
 const clearSearch = () => {
@@ -154,8 +145,30 @@ const clearSearch = () => {
   currentPage.value = 1
 }
 
+const setupInfiniteScroll = () => {
+  if (observer) observer.disconnect()
+  observer = new window.IntersectionObserver(async (entries) => {
+    if (entries[0].isIntersecting && hasMoreResults.value && !loading.value && !loadingMore.value) {
+      await loadMore()
+    }
+  })
+  if (infiniteScrollSentinel.value) {
+    observer.observe(infiniteScrollSentinel.value)
+  }
+}
+
+watch([searchResults, hasMoreResults], async () => {
+  await nextTick()
+  setupInfiniteScroll()
+})
+
 onMounted(() => {
   // Initialize with empty search
+  setupInfiniteScroll()
+})
+
+onBeforeUnmount(() => {
+  if (observer) observer.disconnect()
 })
 </script>
 

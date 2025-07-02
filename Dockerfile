@@ -29,8 +29,8 @@ COPY nginx.conf /etc/nginx/nginx.conf
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
-# Expose port 80
-EXPOSE 80
+# Expose port 8084
+EXPOSE 8084
 
 # Start nginx
 CMD ["/start.sh"] 
