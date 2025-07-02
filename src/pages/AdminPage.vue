@@ -369,6 +369,7 @@ const settingPeriodicity = ref(false)
 const error = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
 const periodicityError = ref<string | null>(null)
+const currentSyncPeriod = ref<number>(0)
 
 const enumGroupExpanded = ref<Record<number, boolean>>({})
 const enumExpanded = ref<Record<string, boolean>>({})
@@ -406,8 +407,8 @@ const setPeriodicity = async () => {
     await searchAPI.setSyncPeriodicity(seconds)
     successMessage.value = `Sync periodicity updated to ${seconds} seconds`
     showPeriodicityDialog.value = false
-    // Reload config data to update the current sync period display
-    await fetchConfig()
+    // Fetch the updated sync periodicity
+    await fetchCurrentSyncPeriod()
   } catch (err) {
     console.error('Failed to set periodicity:', err)
     error.value = 'Failed to set sync periodicity. Please try again.'
@@ -425,11 +426,18 @@ const toggleEnum = (key: string, groupIndex: number) => {
   enumExpanded.value[keyName] = !enumExpanded.value[keyName]
 }
 
+const fetchCurrentSyncPeriod = async () => {
+  try {
+    const response = await searchAPI.getSyncPeriodicity()
+    currentSyncPeriod.value = response.data.sync_period_seconds
+  } catch (err) {
+    console.error('Failed to fetch sync periodicity:', err)
+    currentSyncPeriod.value = 0
+  }
+}
+
 const getCurrentSyncPeriod = (): string => {
-  const syncPeriodItem = config.value?.config_items?.find(item => item.name === 'ELASTIC_SYNC_PERIOD')
-  if (!syncPeriodItem) return 'Not configured'
-  
-  const period = parseInt(syncPeriodItem.value)
+  const period = currentSyncPeriod.value
   if (period === 0) return 'Disabled'
   if (period < 60) return `${period} seconds`
   if (period < 3600) return `${Math.floor(period / 60)} minutes`
@@ -437,7 +445,10 @@ const getCurrentSyncPeriod = (): string => {
 }
 
 onMounted(async () => {
-  await fetchConfig()
+  await Promise.all([
+    fetchConfig(),
+    fetchCurrentSyncPeriod()
+  ])
 })
 </script>
 
