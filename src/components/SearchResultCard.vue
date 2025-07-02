@@ -143,14 +143,14 @@ const getDetailUrl = (): string | null => {
 const handleCardClick = () => {
   const detailUrl = getDetailUrl()
   if (detailUrl) {
-    window.open(detailUrl, '_blank')
+    window.location.href = detailUrl
   }
 }
 
 const handleDetailsClick = () => {
   const detailUrl = getDetailUrl()
   if (detailUrl) {
-    window.open(detailUrl, '_blank')
+    window.location.href = detailUrl
   } else {
     console.warn('No detail URL configured for collection:', props.result.collection_name)
   }
