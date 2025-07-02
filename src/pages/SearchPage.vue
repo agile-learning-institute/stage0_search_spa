@@ -26,6 +26,7 @@
               clearable
               @keyup.enter="performSearch"
               @click:clear="clearSearch"
+              :disabled="loading"
             >
               <template v-slot:append>
                 <v-btn
@@ -41,6 +42,18 @@
           </v-card-text>
         </v-card>
 
+        <!-- Error State -->
+        <v-alert
+          v-if="error"
+          type="error"
+          variant="tonal"
+          class="mb-6"
+          closable
+          @click:close="error = null"
+        >
+          {{ error }}
+        </v-alert>
+
         <!-- Search Results -->
         <div v-if="searchResults.length > 0">
           <v-row>
@@ -55,6 +68,15 @@
               <SearchResultCard :result="result" />
             </v-col>
           </v-row>
+          
+          <!-- Loading More Indicator -->
+          <v-row v-if="loadingMore" justify="center" class="mt-6">
+            <v-col cols="auto">
+              <v-progress-circular indeterminate color="primary" size="32"></v-progress-circular>
+              <span class="ml-3 text-body-2">Loading more results...</span>
+            </v-col>
+          </v-row>
+          
           <!-- Infinite Scroll Sentinel -->
           <div ref="infiniteScrollSentinel" style="height: 1px;"></div>
         </div>
@@ -68,11 +90,20 @@
           </v-card-text>
         </v-card>
 
-        <!-- Loading State -->
+        <!-- Initial Loading State -->
         <v-card v-if="loading && !hasSearched" class="elevation-3">
           <v-card-text class="text-center py-8">
             <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
             <div class="text-h6 mt-4">Searching...</div>
+          </v-card-text>
+        </v-card>
+
+        <!-- Initial State -->
+        <v-card v-if="!hasSearched && !loading && !error" class="elevation-3">
+          <v-card-text class="text-center py-8">
+            <v-icon size="64" color="primary">mdi-magnify</v-icon>
+            <div class="text-h6 mt-4">Search across all collections</div>
+            <div class="text-body-2 text-grey">Enter your search terms above to get started</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -94,6 +125,7 @@ const hasSearched = ref(false)
 const hasMoreResults = ref(false)
 const currentPage = ref(1)
 const currentPageSize = ref(12)
+const error = ref<string | null>(null)
 const infiniteScrollSentinel = ref<HTMLElement | null>(null)
 let observer: IntersectionObserver | null = null
 
@@ -103,6 +135,7 @@ const performSearch = async (page = 1) => {
   if (page === 1) {
     loading.value = true
     hasSearched.value = true
+    error.value = null
   } else {
     loadingMore.value = true
   }
@@ -124,8 +157,12 @@ const performSearch = async (page = 1) => {
     
     hasMoreResults.value = data.pagination.has_next
     currentPage.value = data.pagination.page
-  } catch (error) {
-    console.error('Search failed:', error)
+  } catch (err) {
+    console.error('Search failed:', err)
+    error.value = 'Failed to perform search. Please try again.'
+    if (page === 1) {
+      searchResults.value = []
+    }
   } finally {
     loading.value = false
     loadingMore.value = false
@@ -143,6 +180,7 @@ const clearSearch = () => {
   hasSearched.value = false
   hasMoreResults.value = false
   currentPage.value = 1
+  error.value = null
 }
 
 const setupInfiniteScroll = () => {

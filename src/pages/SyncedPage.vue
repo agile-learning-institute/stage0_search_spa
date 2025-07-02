@@ -22,6 +22,18 @@
           </v-card-text>
         </v-card>
 
+        <!-- Error Alert -->
+        <v-alert
+          v-if="error"
+          type="error"
+          variant="tonal"
+          class="mb-6"
+          closable
+          @click:close="error = null"
+        >
+          {{ error }}
+        </v-alert>
+
         <!-- Sync History List -->
         <div v-if="syncHistory.length > 0">
           <v-card
@@ -57,20 +69,16 @@
             </v-card-text>
           </v-card>
           
-          <!-- Load More Button -->
-          <v-row v-if="hasMoreResults" justify="center" class="mt-6">
+          <!-- Loading More Indicator -->
+          <v-row v-if="loadingMore" justify="center" class="mt-6">
             <v-col cols="auto">
-              <v-btn
-                color="primary"
-                variant="outlined"
-                @click="loadMore"
-                :loading="loadingMore"
-                :disabled="loadingMore"
-              >
-                Load More
-              </v-btn>
+              <v-progress-circular indeterminate color="primary" size="32"></v-progress-circular>
+              <span class="ml-3 text-body-2">Loading more history...</span>
             </v-col>
           </v-row>
+          
+          <!-- Infinite Scroll Sentinel -->
+          <div ref="infiniteScrollSentinel" style="height: 1px;"></div>
         </div>
 
         <!-- No Results -->
@@ -95,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
 import { searchAPI } from '../utils/api'
 import type { SyncResult, SyncHistoryResponse } from '../types'
 
@@ -106,9 +114,17 @@ const hasMoreResults = ref(false)
 const currentPage = ref(1)
 const currentPageSize = ref(10)
 const totalItems = ref(0)
+const error = ref<string | null>(null)
+const infiniteScrollSentinel = ref<HTMLElement | null>(null)
+let observer: IntersectionObserver | null = null
 
 const loadSyncHistory = async (page = 1) => {
-  loading.value = true
+  if (page === 1) {
+    loading.value = true
+    error.value = null
+  } else {
+    loadingMore.value = true
+  }
   
   try {
     const response = await searchAPI.getSyncHistory({
@@ -127,27 +143,51 @@ const loadSyncHistory = async (page = 1) => {
     hasMoreResults.value = data.pagination.has_next
     currentPage.value = data.pagination.page
     totalItems.value = data.pagination.total_items
-  } catch (error) {
-    console.error('Failed to load sync history:', error)
+  } catch (err) {
+    console.error('Failed to load sync history:', err)
+    error.value = 'Failed to load sync history. Please try again.'
+    if (page === 1) {
+      syncHistory.value = []
+    }
   } finally {
     loading.value = false
+    loadingMore.value = false
   }
 }
 
 const loadMore = async () => {
-  if (!hasMoreResults.value || loadingMore.value) return
-  
-  loadingMore.value = true
+  if (!hasMoreResults.value || loadingMore.value || loading.value) return
   await loadSyncHistory(currentPage.value + 1)
-  loadingMore.value = false
 }
 
 const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleString()
 }
 
+const setupInfiniteScroll = () => {
+  if (observer) observer.disconnect()
+  observer = new window.IntersectionObserver(async (entries) => {
+    if (entries[0].isIntersecting && hasMoreResults.value && !loading.value && !loadingMore.value) {
+      await loadMore()
+    }
+  })
+  if (infiniteScrollSentinel.value) {
+    observer.observe(infiniteScrollSentinel.value)
+  }
+}
+
+watch([syncHistory, hasMoreResults], async () => {
+  await nextTick()
+  setupInfiniteScroll()
+})
+
 onMounted(async () => {
   await loadSyncHistory()
+  setupInfiniteScroll()
+})
+
+onBeforeUnmount(() => {
+  if (observer) observer.disconnect()
 })
 </script>
 

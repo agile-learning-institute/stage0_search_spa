@@ -22,6 +22,30 @@
           </v-card-text>
         </v-card>
 
+        <!-- Error Alert -->
+        <v-alert
+          v-if="error"
+          type="error"
+          variant="tonal"
+          class="mb-6"
+          closable
+          @click:close="error = null"
+        >
+          {{ error }}
+        </v-alert>
+
+        <!-- Success Alert -->
+        <v-alert
+          v-if="successMessage"
+          type="success"
+          variant="tonal"
+          class="mb-6"
+          closable
+          @click:close="successMessage = null"
+        >
+          {{ successMessage }}
+        </v-alert>
+
         <!-- Token Information -->
         <v-card class="mb-6 elevation-3">
           <v-card-title class="text-h6 font-weight-bold">Token Information</v-card-title>
@@ -75,7 +99,7 @@
             <span>SPA Config</span>
             <v-spacer></v-spacer>
             <v-btn
-              icon="mdi-chevron-up"
+              :icon="spaConfigExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"
               variant="text"
               size="small"
               @click="spaConfigExpanded = !spaConfigExpanded"
@@ -95,6 +119,7 @@
                       :loading="syncing"
                       :disabled="syncing"
                     >
+                      <v-icon left>mdi-sync</v-icon>
                       Sync All Collections
                     </v-btn>
                   </v-col>
@@ -105,6 +130,7 @@
                       block
                       @click="$router.push('/synced')"
                     >
+                      <v-icon left>mdi-history</v-icon>
                       View Sync History
                     </v-btn>
                   </v-col>
@@ -117,6 +143,7 @@
                       block
                       @click="showPeriodicityDialog = true"
                     >
+                      <v-icon left>mdi-clock-outline</v-icon>
                       Set Sync Periodicity
                     </v-btn>
                   </v-col>
@@ -172,6 +199,7 @@
             variant="outlined"
             hint="0 to disable periodic sync"
             persistent-hint
+            :error-messages="periodicityError"
           ></v-text-field>
         </v-card-text>
         <v-card-actions>
@@ -206,26 +234,46 @@ const showPeriodicityDialog = ref(false)
 const periodicitySeconds = ref('300')
 const syncing = ref(false)
 const settingPeriodicity = ref(false)
+const error = ref<string | null>(null)
+const successMessage = ref<string | null>(null)
+const periodicityError = ref<string | null>(null)
 
 const syncAll = async () => {
   syncing.value = true
+  error.value = null
+  successMessage.value = null
+  
   try {
     await searchAPI.syncAll()
+    successMessage.value = 'Sync completed successfully!'
     router.push('/synced')
-  } catch (error) {
-    console.error('Sync failed:', error)
+  } catch (err) {
+    console.error('Sync failed:', err)
+    error.value = 'Failed to sync collections. Please try again.'
   } finally {
     syncing.value = false
   }
 }
 
 const setPeriodicity = async () => {
+  const seconds = parseInt(periodicitySeconds.value)
+  if (isNaN(seconds) || seconds < 0) {
+    periodicityError.value = 'Please enter a valid number (0 or greater)'
+    return
+  }
+  
   settingPeriodicity.value = true
+  error.value = null
+  successMessage.value = null
+  periodicityError.value = null
+  
   try {
-    await searchAPI.setSyncPeriodicity(parseInt(periodicitySeconds.value))
+    await searchAPI.setSyncPeriodicity(seconds)
+    successMessage.value = `Sync periodicity updated to ${seconds} seconds`
     showPeriodicityDialog.value = false
-  } catch (error) {
-    console.error('Failed to set periodicity:', error)
+  } catch (err) {
+    console.error('Failed to set periodicity:', err)
+    error.value = 'Failed to set sync periodicity. Please try again.'
   } finally {
     settingPeriodicity.value = false
   }

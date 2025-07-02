@@ -10,14 +10,21 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  define: {
+    __SPA_BUILT_AT__: JSON.stringify(process.env.SPA_BUILT_AT || 'LOCAL'),
+  },
   server: {
-    port: 3000,
-    host: true,
+    port: 8084,
+    strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:8083',
         changeOrigin: true,
+        secure: false,
       },
+    },
+    fs: {
+      strict: false,
     },
   },
   build: {

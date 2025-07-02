@@ -28,6 +28,7 @@
         variant="text"
         size="small"
         @click.stop="handleDetailsClick"
+        :disabled="!getDetailUrl()"
       >
         Details
       </v-btn>
@@ -36,7 +37,8 @@
 </template>
 
 <script setup lang="ts">
-
+import { computed } from 'vue'
+import { useConfig } from '../composables/useConfig'
 import type { SearchResult } from '../types'
 
 interface Props {
@@ -44,6 +46,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const { config } = useConfig()
 
 const getTitle = (): string => {
   const collectionData = props.result[props.result.collection_name]
@@ -122,14 +125,35 @@ const getCollectionColor = (): string => {
   }
 }
 
+const getDetailUrl = (): string | null => {
+  if (!config.value?.config_items) return null
+  
+  const collectionName = props.result.collection_name
+  const configKey = `${collectionName.toUpperCase()}_SPA_HOST`
+  
+  const configItem = config.value.config_items.find(item => item.name === configKey)
+  if (!configItem || !configItem.value || configItem.value === 'secret') {
+    return null
+  }
+  
+  // Build the detail URL with the collection ID
+  return `${configItem.value}/${collectionName}/${props.result.collection_id}`
+}
+
 const handleCardClick = () => {
-  // Handle card click if needed
+  const detailUrl = getDetailUrl()
+  if (detailUrl) {
+    window.open(detailUrl, '_blank')
+  }
 }
 
 const handleDetailsClick = () => {
-  // This will be implemented to navigate to the appropriate SPA
-  // based on collection_name and SPA_HOST config
-  console.log('Navigate to details for:', props.result.collection_name, props.result.collection_id)
+  const detailUrl = getDetailUrl()
+  if (detailUrl) {
+    window.open(detailUrl, '_blank')
+  } else {
+    console.warn('No detail URL configured for collection:', props.result.collection_name)
+  }
 }
 </script>
 
