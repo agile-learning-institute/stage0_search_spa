@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+
 import { useConfig } from '../composables/useConfig'
 import type { SearchResult } from '../types'
 
