@@ -46,11 +46,25 @@ export interface Token {
   roles: string[]
 }
 
+export interface EnumeratorGroup {
+  _id: string
+  name: string
+  status: string
+  version: number
+  enumerators: Record<string, string>
+}
+
+export interface Version {
+  _id: string
+  collection_name: string
+  current_version: string
+}
+
 export interface Config {
   config_items: ConfigItem[]
   token: Token
-  enumerators?: Record<string, string>
-  versions?: string[]
+  enumerators?: EnumeratorGroup[]
+  versions?: Version[]
 }
 
 export interface SyncPeriodicity {
