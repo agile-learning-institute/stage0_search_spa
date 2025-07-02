@@ -1,5 +1,5 @@
-# Multi-stage build for Vue.js SPA
-FROM node:18-alpine AS build
+# Stage 1: Build stage
+FROM node:20 AS build
 
 # Set working directory
 WORKDIR /app
@@ -7,16 +7,18 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including dev dependencies for build)
+RUN npm ci
 
 # Copy source code
 COPY . .
 
-# Build the application
+# Set build timestamp and build the application
+ARG SPA_BUILT_AT
+ENV SPA_BUILT_AT=$SPA_BUILT_AT
 RUN npm run build
 
-# Production stage
+# Stage 2: Production stage
 FROM nginx:alpine
 
 # Copy built application from build stage
@@ -25,12 +27,12 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# Copy start script
+# Copy startup script
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
-# Expose port 8084
+# Expose port
 EXPOSE 8084
 
-# Start nginx
+# Start nginx with environment variable substitution
 CMD ["/start.sh"] 
