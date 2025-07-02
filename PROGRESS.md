@@ -1,12 +1,8 @@
 # Search SPA Requirements
 
 Build a Single Page web app, using the same tech stack and Docker/NGINX deployment configurations 
-as [stage0_mongodb_spa](https://github.com/agile-learning-institute/stage0_mongodb_spa).
-Implement the same Dockerfile, docker-push, npm, and NGINX configurations. 
-Start with a copy of the stage0_mongodb_spa /admin page - and the same /api/config endpoint for data on that page. 
-We will be using the stage0_search_api - review the
- [openapi specifications](https://github.com/agile-learning-institute/stage0_search_api/blob/main/docs/openapi.yaml) 
- before starting
+as [stage0_mongodb_spa](../stage0_mongodb_spa/). Implement the same Dockerfile, docker-push, npm, and NGINX configurations. Start with a copy of the stage0_mongodb_spa /admin page - and use the same /api/config endpoint for data on that page. We will be using the stage0_search_api - review the
+[@openapi.yaml](../stage0_search_api/docs/openapi.yaml) before starting
 
 Page routes
 - / the default route should forward to /search
